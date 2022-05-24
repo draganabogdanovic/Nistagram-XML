@@ -1,0 +1,166 @@
+version: '3'
+
+services:
+  api-gateway:
+    restart: always
+    image: nginx:1.19.8-alpine
+    ports:
+      - 8080:8080
+    volumes:
+      - ./api-gateway/nginx.conf:/etc/nginx/nginx.conf
+      - ./api-gateway/api_gateway.conf:/etc/nginx/api_gateway.conf
+
+  user-service-db:
+    restart: always
+    image: postgres
+    container_name: user-service-postgres
+    volumes:
+      - ./user-service/pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+
+  user-service:
+    restart: always
+    image: user-service:compose_build
+    container_name: user-service
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    environment: 
+      - DBHOST=user-service-db
+      - USER=postgres
+      - PASSWORD=root
+      - DBNAME=postgres
+      - DBPORT=5432
+      - USER_SERVICE_PORT=${USER_SERVICE_PORT}
+      - AUTH_SERVICE_DOMAIN=${AUTH_SERVICE_DOMAIN}
+      - AUTH_SERVICE_PORT=${AUTH_SERVICE_PORT}
+      - MEDIA_SERVICE_PORT=${MEDIA_SERVICE_PORT}
+      - MEDIA_SERVICE_DOMAIN=${MEDIA_SERVICE_DOMAIN}
+    depends_on: 
+      - user-service-db
+  
+  auth-service-db:
+    restart: always
+    image: postgres
+    container_name: auth-service-postgres
+    volumes:
+      - ./auth-service/pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+
+  auth-service:
+    restart: always
+    image: auth-service:compose_build
+    container_name: auth-service
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    environment: 
+      - DBHOST=auth-service-db
+      - USER=postgres
+      - PASSWORD=root
+      - DBNAME=postgres
+      - DBPORT=5432
+      - AUTH_SERVICE_PORT=${AUTH_SERVICE_PORT}
+      - USER_SERVICE_DOMAIN=${USER_SERVICE_DOMAIN}
+      - USER_SERVICE_PORT=${USER_SERVICE_PORT}
+    depends_on:
+      - auth-service-db
+    volumes:
+      - ./auth-service/keys:/root/keys
+  
+  post-service-db:
+    restart: always
+    image: postgres
+    container_name: post-service-postgres
+    volumes:
+      - ./post-service/pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+
+  post-service:
+    restart: always
+    image: post-service:compose_build
+    container_name: post-service
+    build:
+      context: ./post-service
+      dockerfile: Dockerfile
+    environment: 
+      - DBHOST=post-service-db
+      - USER=postgres
+      - PASSWORD=root
+      - DBNAME=postgres
+      - DBPORT=5432
+      - MEDIA_SERVICE_DOMAIN=${MEDIA_SERVICE_DOMAIN}
+      - MEDIA_SERVICE_PORT=${MEDIA_SERVICE_PORT}
+      - POST_SERVICE_PORT=${POST_SERVICE_PORT}
+      - AUTH_SERVICE_DOMAIN=${AUTH_SERVICE_DOMAIN}
+      - AUTH_SERVICE_PORT=${AUTH_SERVICE_PORT}
+      - USER_SERVICE_DOMAIN=${USER_SERVICE_DOMAIN}
+      - USER_SERVICE_PORT=${USER_SERVICE_PORT}
+    depends_on: 
+      - post-service-db
+      - auth-service
+      - user-service
+  
+  media-service:
+    restart: always
+    image: media-service:compose_build
+    container_name: media-service
+    build:
+      context: ./media-service
+      dockerfile: Dockerfile
+    environment: 
+      - MEDIA_SERVICE_PORT=${MEDIA_SERVICE_PORT}
+      - MEDIA_SERVICE_DOMAIN=${MEDIA_SERVICE_DOMAIN}
+      - AUTH_SERVICE_DOMAIN=${AUTH_SERVICE_DOMAIN}
+      - AUTH_SERVICE_PORT=${AUTH_SERVICE_PORT}
+    volumes:
+      - ./media-service/storage:/root/storage
+  
+  story-service-db:
+    restart: always
+    image: postgres
+    container_name: story-service-postgres
+    volumes:
+      - ./story-service/pgdata:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=root
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+  
+  story-service:
+    restart: always
+    image: story-service:compose_build
+    container_name: story-service
+    build:
+      context: ./story-service
+      dockerfile: Dockerfile
+    environment:
+      - DBHOST=story-service-db
+      - USER=postgres
+      - PASSWORD=root
+      - DBNAME=postgres
+      - DBPORT=5432
+      - AUTH_SERVICE_DOMAIN=${AUTH_SERVICE_DOMAIN}
+      - AUTH_SERVICE_PORT=${AUTH_SERVICE_PORT}
+      - STORY_SERVICE_PORT=${STORY_SERVICE_PORT}
+      - MEDIA_SERVICE_DOMAIN=${MEDIA_SERVICE_DOMAIN}
+      - MEDIA_SERVICE_PORT=${MEDIA_SERVICE_PORT}
+      - USER_SERVICE_DOMAIN=${USER_SERVICE_DOMAIN}
+      - USER_SERVICE_PORT=${USER_SERVICE_PORT}
+    depends_on: 
+      - story-service-db
+      - auth-service
+      - user-service
+
+volumes:
+    pgdata:
+    
